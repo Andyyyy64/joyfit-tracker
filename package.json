@@ -1,0 +1,21 @@
+{
+  "name": "joyfit-tracker",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "collect": "bun run src/collector.ts",
+    "server": "bun run src/server.ts",
+    "dev": "bun run src/server.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "@libsql/client": "^0.17.0",
+    "hono": "^4.12.3"
+  }
+}
