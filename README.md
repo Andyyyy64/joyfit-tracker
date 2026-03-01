@@ -38,6 +38,51 @@ Everything runs on free tiers. No server, no local machine required.
 | Hosting | Vercel (free tier) |
 | Cron | cron-job.org (free) |
 
+## Finding Your Store ID & JWT Token
+
+You need two things from the JOYFIT mobile app: your **JWT token** (for authentication) and your **store ID** (to identify your gym location).
+
+### Get Your JWT Token
+
+1. Install the official JOYFIT app and log in with your membership
+2. Use a network traffic proxy (e.g. [HTTP Toolkit](https://httptoolkit.com/), mitmproxy, or Charles Proxy) to intercept HTTPS traffic from the app
+3. Open the app and look for any request to `wf-member-app-prod.neopa.jp`
+4. Copy the `Authorization: Bearer <token>` header value — that's your JWT
+
+The JWT payload looks like this (no `exp` field, so it doesn't expire on its own):
+```json
+{
+  "pass": "...",
+  "memberId": "...",
+  "iat": 1771569216
+}
+```
+
+> **Note:** The token may be invalidated server-side at any time (e.g. password change, app update). If data collection stops working, grab a new token.
+
+### Find Your Store ID
+
+With your JWT, query the API to find your gym's store ID:
+
+```bash
+# Check a specific store (try your local gym's number)
+curl -s "https://wf-member-app-prod.neopa.jp/member/store-status?store_id=223" \
+  -H "Authorization: Bearer <YOUR_JWT>" \
+  -H "x-wfapp-version: joyfit-android-1.47"
+```
+
+Response: `{"data":[{"store_id":"223","status":"74人来館中"}]}`
+
+The `store_id` in the response is what you need. Store IDs appear to correspond to gym locations — try numbers around your area. You can also find hints in the app's network traffic when you view your gym's info.
+
+### Customize the Dashboard Header
+
+The gym name in the dashboard header is hardcoded in `web/src/App.tsx`. Change it to match your location:
+
+```tsx
+<h1 style={styles.title}>JOYFIT24 Your Location Here</h1>
+```
+
 ## Setup
 
 ### 1. Clone & Install
