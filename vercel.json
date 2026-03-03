@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "installCommand": "npm install && cd web && npm install",
+  "installCommand": "npm install && cd web && npm install --legacy-peer-deps",
   "buildCommand": "cd web && npx vite build",
   "outputDirectory": "web/dist",
   "rewrites": [
