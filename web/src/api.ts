@@ -37,6 +37,7 @@ export interface StatsResponse {
 export interface Store {
   id: string;
   name: string;
+  prefecture: string;
   count?: number;
   status_text?: string;
   recorded_at?: string;

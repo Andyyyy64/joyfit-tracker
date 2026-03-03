@@ -3,7 +3,10 @@ import type { Range, Store } from "./api";
 import { useOccupancy, useCurrent, useStats, useStores } from "./hooks";
 import { OccupancyChart } from "./components/OccupancyChart";
 import { StatsPanel } from "./components/StatsPanel";
-import { StoreSelector } from "./components/StoreSelector";
+import { JapanMap } from "./components/JapanMap";
+import { FavoriteBar } from "./components/FavoriteBar";
+import { PrefecturePanel } from "./components/PrefecturePanel";
+import { useFavorites } from "./hooks/useFavorites";
 
 const RANGES: { value: Range; label: string }[] = [
   { value: "today", label: "今日" },
@@ -12,255 +15,397 @@ const RANGES: { value: Range; label: string }[] = [
   { value: "all", label: "全期間" },
 ];
 
-// 混雑度に応じた色 (緑 → 黄 → 赤)
 function getCrowdColor(count: number | undefined): string {
-  if (count === undefined) return "#94a3b8";
+  if (count === undefined) return "#475569";
   if (count < 20) return "#22c55e";
   if (count < 40) return "#f59e0b";
   return "#ef4444";
 }
 
-function AllStoresView({ stores }: { stores: Store[] }) {
-  if (stores.length === 0) {
-    return (
-      <div style={styles.emptyState}>
-        <p>店舗データがありません</p>
-        <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 8 }}>
-          <code>bun run discover</code> を実行して店舗を登録してください
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="stores-grid" style={styles.storesGrid}>
-      {stores.map((store) => (
-        <div key={store.id} style={styles.storeCard}>
-          <div
-            style={{
-              ...styles.storeCount,
-              color: getCrowdColor(store.count),
-            }}
-          >
-            {store.count !== undefined ? store.count : "—"}
-          </div>
-          <div style={styles.storeCountLabel}>人来館中</div>
-          <div style={styles.storeName}>{store.name}</div>
-          {store.recorded_at && (
-            <div style={styles.storeTime}>
-              {new Date(store.recorded_at.replace(" ", "T")).toLocaleTimeString("ja-JP", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              時点
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function StoreDetailView({
   storeId,
-  storeName,
+  stores,
+  onBack,
   range,
+  onRangeChange,
+  isFavorite,
+  onToggleFavorite,
 }: {
   storeId: string;
-  storeName: string;
+  stores: Store[];
+  onBack: () => void;
   range: Range;
+  onRangeChange: (r: Range) => void;
+  isFavorite: (id: string) => boolean;
+  onToggleFavorite: (id: string) => void;
 }) {
+  const store = stores.find((s) => s.id === storeId);
   const current = useCurrent(storeId);
   const { data: occupancy, loading: occLoading } = useOccupancy(range, storeId);
   const { data: stats, loading: statsLoading } = useStats(range, storeId);
 
   return (
-    <>
-      {current && (
-        <div className="current-box" style={styles.currentBox}>
-          <div style={styles.currentCount}>{current.count}</div>
-          <div style={styles.currentLabel}>人来館中</div>
-          <div style={styles.currentTime}>
-            {new Date(current.recorded_at.replace(" ", "T")).toLocaleTimeString("ja-JP", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-            時点
-          </div>
+    <div style={detailStyles.root}>
+      <div style={detailStyles.header}>
+        <button onClick={onBack} style={detailStyles.backBtn}>
+          ← 地図に戻る
+        </button>
+        <div style={detailStyles.storeTitle}>
+          {store?.name ?? `店舗 #${storeId}`}
         </div>
-      )}
+        <button
+          onClick={() => onToggleFavorite(storeId)}
+          style={{
+            ...detailStyles.favBtn,
+            color: isFavorite(storeId) ? "#f59e0b" : "#475569",
+          }}
+          title={isFavorite(storeId) ? "お気に入り解除" : "お気に入り追加"}
+        >
+          {isFavorite(storeId) ? "★" : "☆"}
+        </button>
+      </div>
 
-      <section className="card" style={styles.card}>
-        <h2 style={styles.cardTitle}>来館者数推移 — {storeName}</h2>
-        <OccupancyChart data={occupancy} loading={occLoading} />
-      </section>
-
-      <section className="card" style={styles.card}>
-        <h2 style={styles.cardTitle}>統計データ — {storeName}</h2>
-        <StatsPanel data={stats} loading={statsLoading} />
-      </section>
-    </>
-  );
-}
-
-export function App() {
-  const [range, setRange] = useState<Range>("today");
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  const { data: stores } = useStores();
-
-  const selectedStore = stores.find((s) => s.id === selectedStoreId) ?? null;
-  const isOverview = selectedStoreId === null;
-
-  return (
-    <div style={styles.root}>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #f1f5f9; }
-        @media (max-width: 600px) {
-          .header-inner { flex-direction: column; gap: 12px; text-align: center; }
-          .current-box { text-align: center !important; }
-          .range-bar { flex-wrap: wrap; justify-content: center; }
-          .range-btn { flex: 1; min-width: 70px; padding: 10px 8px !important; }
-          .card { padding: 16px !important; }
-          .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .stores-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-      `}</style>
-
-      {/* Header */}
-      <header style={styles.header}>
-        <div className="header-inner" style={styles.headerInner}>
-          <div>
-            <h1 style={styles.title}>JOYFIT24 混雑トラッカー</h1>
-            <p style={styles.subtitle}>
-              {stores.length > 0 ? `${stores.length}店舗を追跡中` : "読み込み中..."}
-            </p>
+      <div style={detailStyles.body}>
+        {current && (
+          <div
+            style={{
+              ...detailStyles.currentBox,
+              borderColor: getCrowdColor(current.count) + "44",
+            }}
+          >
+            <div style={{ ...detailStyles.currentCount, color: getCrowdColor(current.count) }}>
+              {current.count}
+            </div>
+            <div style={detailStyles.currentLabel}>人来館中</div>
+            <div style={detailStyles.currentTime}>
+              {new Date(current.recorded_at.replace(" ", "T")).toLocaleTimeString("ja-JP", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              時点
+            </div>
           </div>
-          {selectedStore && (
-            <div className="current-box" style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>
-                {selectedStore.name}
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <main style={styles.main}>
-        {/* 店舗セレクター */}
-        <StoreSelector
-          stores={stores}
-          selectedId={selectedStoreId}
-          onChange={setSelectedStoreId}
-        />
-
-        {/* 全店舗一覧 or 個別店舗ビュー */}
-        {isOverview ? (
-          <section className="card" style={styles.card}>
-            <h2 style={styles.cardTitle}>全店舗 現在の混雑状況</h2>
-            <AllStoresView stores={stores} />
-          </section>
-        ) : (
-          <>
-            {/* レンジセレクター (個別店舗のみ) */}
-            <div className="range-bar" style={styles.rangeBar}>
-              {RANGES.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setRange(r.value)}
-                  className="range-btn"
-                  style={{
-                    ...styles.rangeButton,
-                    ...(range === r.value ? styles.rangeActive : {}),
-                  }}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-
-            {selectedStoreId && (
-              <StoreDetailView
-                storeId={selectedStoreId}
-                storeName={selectedStore?.name ?? `店舗 #${selectedStoreId}`}
-                range={range}
-              />
-            )}
-          </>
         )}
-      </main>
+
+        <div style={detailStyles.rangeBar}>
+          {RANGES.map((r) => (
+            <button
+              key={r.value}
+              onClick={() => onRangeChange(r.value)}
+              style={{
+                ...detailStyles.rangeBtn,
+                ...(range === r.value ? detailStyles.rangeActive : {}),
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={detailStyles.card}>
+          <h2 style={detailStyles.cardTitle}>来館者数推移</h2>
+          <OccupancyChart data={occupancy} loading={occLoading} />
+        </div>
+
+        <div style={detailStyles.card}>
+          <h2 style={detailStyles.cardTitle}>統計データ</h2>
+          <StatsPanel data={stats} loading={statsLoading} />
+        </div>
+      </div>
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+export function App() {
+  const [selectedPrefecture, setSelectedPrefecture] = useState<string | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [range, setRange] = useState<Range>("today");
+  const { data: stores, loading: storesLoading } = useStores();
+  const { favorites, toggleFavorite, isFavorite } = useFavorites();
+
+  const favoriteStores = favorites
+    .map((id) => stores.find((s) => s.id === id))
+    .filter((s): s is Store => s !== undefined);
+
+  const prefectureStores = selectedPrefecture
+    ? stores.filter((s) => s.prefecture === selectedPrefecture)
+    : [];
+
+  const totalActive = stores.filter((s) => s.count !== undefined).length;
+
+  function handleStoreSelect(id: string) {
+    setSelectedStoreId(id);
+    setSelectedPrefecture(null);
+  }
+
+  function handleBack() {
+    setSelectedStoreId(null);
+  }
+
+  if (selectedStoreId) {
+    return (
+      <div style={appStyles.root}>
+        <style>{globalCSS}</style>
+        <StoreDetailView
+          storeId={selectedStoreId}
+          stores={stores}
+          onBack={handleBack}
+          range={range}
+          onRangeChange={setRange}
+          isFavorite={isFavorite}
+          onToggleFavorite={toggleFavorite}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div style={appStyles.root}>
+      <style>{globalCSS}</style>
+
+      {/* Header */}
+      <header style={appStyles.header}>
+        <div style={appStyles.headerInner}>
+          <div style={appStyles.headerLeft}>
+            <h1 style={appStyles.title}>JOYFIT24</h1>
+            <p style={appStyles.subtitle}>混雑トラッカー</p>
+          </div>
+          <div style={appStyles.headerRight}>
+            <div style={appStyles.liveDot} />
+            <span style={appStyles.liveText}>
+              {storesLoading
+                ? "読み込み中..."
+                : `${totalActive} / ${stores.length} 店舗 データあり`}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Favorites Bar */}
+      <FavoriteBar
+        stores={favoriteStores}
+        onStoreSelect={handleStoreSelect}
+        onToggleFavorite={toggleFavorite}
+      />
+
+      {/* Map */}
+      <main style={appStyles.main}>
+        <div style={appStyles.mapWrapper}>
+          <JapanMap
+            stores={stores}
+            selectedPrefecture={selectedPrefecture}
+            onPrefectureSelect={setSelectedPrefecture}
+          />
+          {stores.length === 0 && !storesLoading && (
+            <div style={appStyles.mapOverlay}>
+              <p style={{ color: "#64748b", fontSize: 14 }}>店舗データがありません</p>
+            </div>
+          )}
+        </div>
+
+        <p style={appStyles.hint}>
+          都道府県をクリックすると店舗一覧を表示します
+        </p>
+      </main>
+
+      {/* Prefecture Panel */}
+      {selectedPrefecture && (
+        <PrefecturePanel
+          prefecture={selectedPrefecture}
+          stores={prefectureStores}
+          onStoreSelect={handleStoreSelect}
+          onClose={() => setSelectedPrefecture(null)}
+          isFavorite={isFavorite}
+          onToggleFavorite={toggleFavorite}
+        />
+      )}
+    </div>
+  );
+}
+
+const globalCSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; color: #f1f5f9; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #0f172a; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+`;
+
+const appStyles: Record<string, React.CSSProperties> = {
   root: {
-    fontFamily: "'Inter', 'Noto Sans JP', sans-serif",
     minHeight: "100vh",
+    background: "#0f172a",
+    fontFamily: "'Inter', 'Noto Sans JP', system-ui, sans-serif",
+    color: "#f1f5f9",
   },
   header: {
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    color: "white",
-    padding: "24px 0",
+    background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
+    borderBottom: "1px solid #1e293b",
+    padding: "16px 0",
   },
   headerInner: {
-    maxWidth: 960,
+    maxWidth: 1200,
     margin: "0 auto",
     padding: "0 20px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  headerLeft: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 10,
+  },
   title: {
-    fontSize: 22,
-    fontWeight: 700,
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: 800,
+    color: "#f1f5f9",
+    letterSpacing: "-0.5px",
   },
   subtitle: {
-    fontSize: 13,
-    opacity: 0.8,
-    marginTop: 2,
+    fontSize: 14,
+    color: "#6366f1",
+    fontWeight: 600,
   },
-  currentBox: {
-    textAlign: "right" as const,
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
   },
-  currentCount: {
-    fontSize: 40,
-    fontWeight: 700,
-    lineHeight: 1,
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "#22c55e",
+    boxShadow: "0 0 6px #22c55e",
+    animation: "pulse 2s infinite",
   },
-  currentLabel: {
-    fontSize: 13,
-    opacity: 0.85,
-  },
-  currentTime: {
-    fontSize: 11,
-    opacity: 0.6,
-    marginTop: 2,
+  liveText: {
+    fontSize: 12,
+    color: "#64748b",
   },
   main: {
+    maxWidth: 1200,
+    margin: "0 auto",
+    padding: "20px 20px 40px",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 12,
+  },
+  mapWrapper: {
+    position: "relative" as const,
+    borderRadius: 16,
+    overflow: "hidden",
+    border: "1px solid #1e293b",
+    minHeight: 480,
+  },
+  mapOverlay: {
+    position: "absolute" as const,
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hint: {
+    textAlign: "center" as const,
+    fontSize: 12,
+    color: "#334155",
+  },
+};
+
+const detailStyles: Record<string, React.CSSProperties> = {
+  root: {
+    minHeight: "100vh",
+    background: "#0f172a",
+    display: "flex",
+    flexDirection: "column" as const,
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "16px 20px",
+    background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
+    borderBottom: "1px solid #1e293b",
+    position: "sticky" as const,
+    top: 0,
+    zIndex: 10,
+  },
+  backBtn: {
+    background: "#1e293b",
+    border: "1px solid #334155",
+    color: "#94a3b8",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    borderRadius: 8,
+    padding: "8px 14px",
+    flexShrink: 0,
+  },
+  storeTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#f1f5f9",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+  },
+  favBtn: {
+    background: "transparent",
+    border: "none",
+    fontSize: 22,
+    cursor: "pointer",
+    padding: 4,
+    flexShrink: 0,
+  },
+  body: {
     maxWidth: 960,
+    width: "100%",
     margin: "0 auto",
     padding: "20px 20px 60px",
     display: "flex",
     flexDirection: "column" as const,
     gap: 20,
   },
+  currentBox: {
+    background: "#1e293b",
+    borderRadius: 14,
+    padding: "24px 28px",
+    border: "1px solid transparent",
+    display: "flex",
+    flexDirection: "column" as const,
+    alignItems: "flex-start",
+    gap: 4,
+  },
+  currentCount: {
+    fontSize: 56,
+    fontWeight: 800,
+    lineHeight: 1,
+    letterSpacing: "-2px",
+  },
+  currentLabel: {
+    fontSize: 14,
+    color: "#94a3b8",
+  },
+  currentTime: {
+    fontSize: 11,
+    color: "#475569",
+  },
   rangeBar: {
     display: "flex",
     gap: 8,
+    flexWrap: "wrap" as const,
   },
-  rangeButton: {
-    padding: "8px 18px",
-    border: "1px solid #e2e8f0",
+  rangeBtn: {
+    padding: "9px 18px",
+    border: "1px solid #334155",
     borderRadius: 8,
-    background: "white",
+    background: "#1e293b",
     color: "#64748b",
     fontSize: 13,
     fontWeight: 500,
     cursor: "pointer",
-    transition: "all 0.15s",
   },
   rangeActive: {
     background: "#6366f1",
@@ -268,52 +413,15 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: "#6366f1",
   },
   card: {
-    background: "white",
+    background: "#1e293b",
     borderRadius: 14,
     padding: 24,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+    border: "1px solid #334155",
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 600,
-    color: "#1e293b",
+    color: "#e2e8f0",
     marginBottom: 16,
-  },
-  storesGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 12,
-  },
-  storeCard: {
-    background: "#f8fafc",
-    borderRadius: 10,
-    padding: "16px 12px",
-    textAlign: "center" as const,
-  },
-  storeCount: {
-    fontSize: 32,
-    fontWeight: 700,
-    lineHeight: 1.1,
-  },
-  storeCountLabel: {
-    fontSize: 11,
-    color: "#94a3b8",
-    marginTop: 2,
-  },
-  storeName: {
-    fontSize: 12,
-    color: "#475569",
-    fontWeight: 500,
-    marginTop: 8,
-  },
-  storeTime: {
-    fontSize: 10,
-    color: "#94a3b8",
-    marginTop: 2,
-  },
-  emptyState: {
-    padding: 40,
-    textAlign: "center" as const,
-    color: "#64748b",
   },
 };

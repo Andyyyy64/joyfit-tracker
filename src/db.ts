@@ -43,7 +43,8 @@ export async function initDb(): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS stores (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      prefecture TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS analysis_cache (
@@ -54,6 +55,13 @@ export async function initDb(): Promise<void> {
       created_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
     );
   `);
+
+  // Migration: add prefecture column if not exists (for existing DBs)
+  try {
+    await db.execute({ sql: "ALTER TABLE stores ADD COLUMN prefecture TEXT NOT NULL DEFAULT ''", args: [] });
+  } catch {
+    // Column already exists, ignore
+  }
 
 }
 
@@ -202,20 +210,20 @@ export async function getLatestOccupancy(
   return rowTo<OccupancyRecord>(result.rows[0]!);
 }
 
-export async function getStores(): Promise<{ id: string; name: string }[]> {
+export async function getStores(): Promise<{ id: string; name: string; prefecture: string }[]> {
   const db = await getDb();
   const result = await db.execute({
-    sql: "SELECT id, name FROM stores ORDER BY CAST(id AS INTEGER)",
+    sql: "SELECT id, name, prefecture FROM stores ORDER BY CAST(id AS INTEGER)",
     args: [],
   });
-  return result.rows.map((r) => rowTo<{ id: string; name: string }>(r));
+  return result.rows.map((r) => rowTo<{ id: string; name: string; prefecture: string }>(r));
 }
 
-export async function upsertStore(id: string, name: string): Promise<void> {
+export async function upsertStore(id: string, name: string, prefecture: string): Promise<void> {
   const db = await getDb();
   await db.execute({
-    sql: "INSERT OR IGNORE INTO stores (id, name) VALUES (?, ?)",
-    args: [id, name],
+    sql: "INSERT INTO stores (id, name, prefecture) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, prefecture=excluded.prefecture",
+    args: [id, name, prefecture],
   });
 }
 

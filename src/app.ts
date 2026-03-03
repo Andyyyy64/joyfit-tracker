@@ -27,23 +27,30 @@ async function syncStoresFromApi(): Promise<string[]> {
 
   const json = (await res.json()) as { data: unknown[] };
 
-  function flatten(nodes: unknown[]): { id: string; name: string }[] {
-    const result: { id: string; name: string }[] = [];
+  function flatten(nodes: unknown[], currentPrefecture = ""): { id: string; name: string; prefecture: string }[] {
+    const result: { id: string; name: string; prefecture: string }[] = [];
     for (const node of nodes as Record<string, unknown>[]) {
       if (node.store_id) {
         result.push({
           id: node.store_id as string,
           name: `${node.brand} ${node.store_name}`,
+          prefecture: currentPrefecture,
         });
       } else if (node.contents) {
-        result.push(...flatten(node.contents as unknown[]));
+        const label = (node.label as string) || "";
+        const childNodes = node.contents as unknown[];
+        const childrenAreStores = (childNodes as Record<string, unknown>[]).some((c) => (c as Record<string, unknown>).store_id);
+        // Normalize Tokyo area labels to "東京"
+        const prefLabel = label === "東京23区" || label === "東京23区外" ? "東京" : label;
+        const nextPrefecture = childrenAreStores ? prefLabel : currentPrefecture;
+        result.push(...flatten(childNodes, nextPrefecture));
       }
     }
     return result;
   }
 
   const stores = flatten(json.data);
-  await Promise.all(stores.map((s) => upsertStore(s.id, s.name)));
+  await Promise.all(stores.map((s) => upsertStore(s.id, s.name, s.prefecture)));
   return stores.map((s) => s.id);
 }
 
@@ -154,10 +161,11 @@ app.get("/api/collect", async (c) => {
 
   await initDb();
 
-  // storesテーブルが空なら自動でJOYFIT APIから全店舗取得
+  // storesテーブルが空 or 都道府県データが未設定なら自動でJOYFIT APIから全店舗取得
   let storeIds: string[];
   const existingStores = await getStores();
-  if (existingStores.length === 0) {
+  const needsSync = existingStores.length === 0 || existingStores.some((s) => !s.prefecture);
+  if (needsSync) {
     storeIds = await syncStoresFromApi();
   } else {
     storeIds = existingStores.map((s) => s.id);
