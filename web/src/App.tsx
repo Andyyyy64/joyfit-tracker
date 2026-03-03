@@ -6,6 +6,9 @@ import { StatsPanel } from "./components/StatsPanel";
 import { JapanMap } from "./components/JapanMap";
 import { FavoriteBar } from "./components/FavoriteBar";
 import { PrefecturePanel } from "./components/PrefecturePanel";
+import { StoreRanking } from "./components/StoreRanking";
+import { PrefectureRanking } from "./components/PrefectureRanking";
+import { SearchBar } from "./components/SearchBar";
 import { useFavorites } from "./hooks/useFavorites";
 
 const RANGES: { value: Range; label: string }[] = [
@@ -138,6 +141,10 @@ export function App() {
     setSelectedPrefecture(null);
   }
 
+  function handlePrefSelect(pref: string) {
+    setSelectedPrefecture(pref);
+  }
+
   function handleBack() {
     setSelectedStoreId(null);
   }
@@ -188,24 +195,48 @@ export function App() {
         onToggleFavorite={toggleFavorite}
       />
 
-      {/* Map */}
+      {/* 3-column layout */}
       <main style={appStyles.main}>
-        <div style={appStyles.mapWrapper}>
-          <JapanMap
+        {/* Left: Store Ranking */}
+        <div className="sidebar sidebar-left" style={appStyles.sidebar}>
+          <StoreRanking
             stores={stores}
-            selectedPrefecture={selectedPrefecture}
-            onPrefectureSelect={setSelectedPrefecture}
+            onStoreSelect={handleStoreSelect}
+            isFavorite={isFavorite}
+            onToggleFavorite={toggleFavorite}
           />
-          {stores.length === 0 && !storesLoading && (
-            <div style={appStyles.mapOverlay}>
-              <p style={{ color: "#64748b", fontSize: 14 }}>店舗データがありません</p>
-            </div>
-          )}
         </div>
 
-        <p style={appStyles.hint}>
-          都道府県をクリックすると店舗一覧を表示します
-        </p>
+        {/* Center: Search + Map */}
+        <div style={appStyles.center}>
+          <SearchBar
+            stores={stores}
+            onStoreSelect={handleStoreSelect}
+            onPrefectureSelect={handlePrefSelect}
+          />
+          <div style={appStyles.mapWrapper}>
+            <JapanMap
+              stores={stores}
+              selectedPrefecture={selectedPrefecture}
+              onPrefectureSelect={setSelectedPrefecture}
+            />
+            {stores.length === 0 && !storesLoading && (
+              <div style={appStyles.mapOverlay}>
+                <p style={{ color: "#64748b", fontSize: 14 }}>店舗データがありません</p>
+              </div>
+            )}
+          </div>
+          <p style={appStyles.hint}>都道府県をクリックすると店舗一覧を表示します</p>
+        </div>
+
+        {/* Right: Prefecture Ranking */}
+        <div className="sidebar sidebar-right" style={appStyles.sidebar}>
+          <PrefectureRanking
+            stores={stores}
+            selectedPrefecture={selectedPrefecture}
+            onPrefectureSelect={handlePrefSelect}
+          />
+        </div>
       </main>
 
       {/* Prefecture Panel */}
@@ -229,6 +260,50 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: #0f172a; }
   ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    gap: 16px;
+  }
+
+  @media (max-width: 1100px) {
+    .main-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .sidebar-left { order: 2; }
+    .sidebar-right { order: 3; }
+    .map-center { order: 1; grid-column: 1 / -1; }
+  }
+
+  @media (max-width: 700px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+    }
+    .sidebar-left, .sidebar-right { order: unset; }
+    .map-center { grid-column: auto; }
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 100px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 1100px) {
+    .sidebar {
+      position: static;
+      max-height: 400px;
+    }
+  }
 `;
 
 const appStyles: Record<string, React.CSSProperties> = {
@@ -244,9 +319,9 @@ const appStyles: Record<string, React.CSSProperties> = {
     padding: "16px 0",
   },
   headerInner: {
-    maxWidth: 1200,
+    maxWidth: 1600,
     margin: "0 auto",
-    padding: "0 20px",
+    padding: "0 24px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -285,12 +360,27 @@ const appStyles: Record<string, React.CSSProperties> = {
     color: "#64748b",
   },
   main: {
-    maxWidth: 1200,
+    maxWidth: 1600,
     margin: "0 auto",
-    padding: "20px 20px 40px",
+    padding: "20px 24px 40px",
+    display: "grid",
+    gridTemplateColumns: "260px 1fr 260px",
+    gap: 16,
+    alignItems: "start",
+  },
+  sidebar: {
+    position: "sticky" as const,
+    top: 16,
+    maxHeight: "calc(100vh - 100px)",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column" as const,
+  },
+  center: {
     display: "flex",
     flexDirection: "column" as const,
     gap: 12,
+    minWidth: 0,
   },
   mapWrapper: {
     position: "relative" as const,
