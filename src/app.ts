@@ -88,10 +88,15 @@ app.get("/api/stores", async (c) => {
     getAllLatestOccupancy(),
   ]);
   const latestMap = new Map(latest.map((r) => [r.store_id, r]));
-  const data = stores.map((s) => ({
-    ...s,
-    ...latestMap.get(s.id),
-  }));
+  const data = stores.map((s) => {
+    const rec = latestMap.get(s.id);
+    return {
+      ...s,
+      count: rec?.count,
+      status_text: rec?.status_text,
+      recorded_at: rec?.recorded_at,
+    };
+  });
   return c.json({ data });
 });
 
