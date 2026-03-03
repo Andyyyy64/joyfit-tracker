@@ -55,9 +55,6 @@ export async function initDb(): Promise<void> {
     );
   `);
 
-  // デフォルト店舗を登録
-  const storeId = process.env.STORE_ID || "223";
-  await upsertStore(storeId, `JOYFIT24 #${storeId}`);
 }
 
 export interface OccupancyRecord {
