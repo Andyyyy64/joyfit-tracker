@@ -5,7 +5,8 @@
   "scripts": {
     "collect": "bun run src/collector.ts",
     "server": "bun run src/server.ts",
-    "dev": "bun run src/server.ts"
+    "dev": "bun run src/server.ts",
+    "discover": "bun run scripts/discoverStores.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

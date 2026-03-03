@@ -41,6 +41,11 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_occupancy_store_recorded
       ON occupancy(store_id, recorded_at);
 
+    CREATE TABLE IF NOT EXISTS stores (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS analysis_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       store_id TEXT NOT NULL,
@@ -49,6 +54,10 @@ export async function initDb(): Promise<void> {
       created_at TEXT NOT NULL DEFAULT (datetime('now', '+9 hours'))
     );
   `);
+
+  // デフォルト店舗を登録
+  const storeId = process.env.STORE_ID || "223";
+  await upsertStore(storeId, `JOYFIT24 #${storeId}`);
 }
 
 export interface OccupancyRecord {
@@ -194,6 +203,34 @@ export async function getLatestOccupancy(
   });
   if (result.rows.length === 0) return null;
   return rowTo<OccupancyRecord>(result.rows[0]!);
+}
+
+export async function getStores(): Promise<{ id: string; name: string }[]> {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: "SELECT id, name FROM stores ORDER BY CAST(id AS INTEGER)",
+    args: [],
+  });
+  return result.rows.map((r) => rowTo<{ id: string; name: string }>(r));
+}
+
+export async function upsertStore(id: string, name: string): Promise<void> {
+  const db = await getDb();
+  await db.execute({
+    sql: "INSERT OR IGNORE INTO stores (id, name) VALUES (?, ?)",
+    args: [id, name],
+  });
+}
+
+export async function getAllLatestOccupancy(): Promise<OccupancyRecord[]> {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: `SELECT o.* FROM occupancy o
+      WHERE o.id IN (SELECT MAX(id) FROM occupancy GROUP BY store_id)
+      ORDER BY o.count DESC`,
+    args: [],
+  });
+  return result.rows.map((r) => rowTo<OccupancyRecord>(r));
 }
 
 export async function getCachedAnalysis(

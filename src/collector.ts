@@ -1,9 +1,8 @@
 import { fetchStoreStatus, parseCount } from "./api.js";
-import { insertOccupancy, initDb } from "./db.js";
+import { insertOccupancy, initDb, getStores } from "./db.js";
 
 const JWT_TOKEN = process.env.JWT_TOKEN;
-const STORE_ID = process.env.STORE_ID || "223";
-const INTERVAL_MS = 60 * 1000; // 1分
+const INTERVAL_MS = 3 * 60 * 1000; // 3分
 
 if (!JWT_TOKEN) {
   console.error("JWT_TOKEN が設定されていません (.env を確認してください)");
@@ -12,24 +11,39 @@ if (!JWT_TOKEN) {
 
 await initDb();
 
+// 収集対象の店舗IDを決定
+// STORE_IDS (カンマ区切り) → STORE_ID → DB の全店舗
+async function getTargetStoreIds(): Promise<string[]> {
+  if (process.env.STORE_IDS) {
+    return process.env.STORE_IDS.split(",").map((s) => s.trim());
+  }
+  const stores = await getStores();
+  if (stores.length > 0) return stores.map((s) => s.id);
+  return [process.env.STORE_ID || "223"];
+}
+
+const storeIds = await getTargetStoreIds();
+
 console.log(`Joyfit Tracker - データ収集開始`);
-console.log(`   店舗ID: ${STORE_ID}`);
-console.log(`   間隔: ${INTERVAL_MS / 1000}秒`);
+console.log(`   対象店舗: ${storeIds.join(", ")} (${storeIds.length}店舗)`);
+console.log(`   間隔: ${INTERVAL_MS / 1000 / 60}分`);
 console.log(`   開始時刻: ${new Date().toLocaleString("ja-JP")}`);
 console.log("---");
 
 let consecutiveErrors = 0;
 const MAX_CONSECUTIVE_ERRORS = 10;
 
+async function collectOne(storeId: string): Promise<void> {
+  const status = await fetchStoreStatus(storeId, JWT_TOKEN!);
+  const count = parseCount(status.status);
+  await insertOccupancy(storeId, count, status.status);
+  const now = new Date().toLocaleString("ja-JP");
+  console.log(`[${now}] 店舗${storeId}: ${status.status}`);
+}
+
 async function collect() {
   try {
-    const status = await fetchStoreStatus(STORE_ID, JWT_TOKEN!);
-    const count = parseCount(status.status);
-
-    await insertOccupancy(STORE_ID, count, status.status);
-
-    const now = new Date().toLocaleString("ja-JP");
-    console.log(`[${now}] ${status.status} (${count}人)`);
+    await Promise.all(storeIds.map((id) => collectOne(id)));
     consecutiveErrors = 0;
   } catch (err) {
     consecutiveErrors++;
@@ -43,7 +57,6 @@ async function collect() {
       console.error(
         `${MAX_CONSECUTIVE_ERRORS}回連続エラー。JWTの有効期限切れの可能性があります。`
       );
-      console.error("   .env の JWT_TOKEN を更新してください。");
       process.exit(1);
     }
   }
