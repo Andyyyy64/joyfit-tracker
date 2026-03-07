@@ -39,3 +39,6 @@ data/*.db-journal
 data/*.db-wal
 .vercel
 .env*.local
+
+# API spec (private, not for git)
+JOYFIT_API_SPEC.md

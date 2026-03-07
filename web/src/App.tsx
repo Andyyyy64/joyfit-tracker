@@ -123,6 +123,7 @@ export function App() {
   const [selectedPrefecture, setSelectedPrefecture] = useState<string | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [range, setRange] = useState<Range>("today");
+  const [mobilePanel, setMobilePanel] = useState<"store" | "prefecture" | null>(null);
   const { data: stores, loading: storesLoading } = useStores();
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
 
@@ -184,6 +185,20 @@ export function App() {
                 ? "読み込み中..."
                 : `${totalActive} / ${stores.length} 店舗 データあり`}
             </span>
+            {/* Mobile three-dot menu */}
+            <div className="mobile-menu-wrapper">
+              <button
+                className="mobile-menu-btn"
+                onClick={() => setMobilePanel(mobilePanel ? null : "store")}
+                aria-label="メニュー"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="#94a3b8">
+                  <circle cx="10" cy="4" r="2" />
+                  <circle cx="10" cy="10" r="2" />
+                  <circle cx="10" cy="16" r="2" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -196,7 +211,7 @@ export function App() {
       />
 
       {/* 3-column layout */}
-      <main style={appStyles.main}>
+      <main className="main-grid" style={appStyles.main}>
         {/* Left: Store Ranking */}
         <div className="sidebar sidebar-left" style={appStyles.sidebar}>
           <StoreRanking
@@ -208,7 +223,7 @@ export function App() {
         </div>
 
         {/* Center: Search + Map */}
-        <div style={appStyles.center}>
+        <div className="map-center" style={appStyles.center}>
           <SearchBar
             stores={stores}
             onStoreSelect={handleStoreSelect}
@@ -250,6 +265,79 @@ export function App() {
           onToggleFavorite={toggleFavorite}
         />
       )}
+
+      {/* Mobile Panel Overlay */}
+      {mobilePanel && (
+        <div className="mobile-panel-overlay" onClick={() => setMobilePanel(null)}>
+          <div
+            className="mobile-panel-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setMobilePanel("store")}
+                  style={{
+                    padding: "7px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #334155",
+                    background: mobilePanel === "store" ? "#6366f1" : "#1e293b",
+                    color: mobilePanel === "store" ? "#fff" : "#94a3b8",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  店舗ランキング
+                </button>
+                <button
+                  onClick={() => setMobilePanel("prefecture")}
+                  style={{
+                    padding: "7px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #334155",
+                    background: mobilePanel === "prefecture" ? "#6366f1" : "#1e293b",
+                    color: mobilePanel === "prefecture" ? "#fff" : "#94a3b8",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  都道府県
+                </button>
+              </div>
+              <button
+                onClick={() => setMobilePanel(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#94a3b8",
+                  fontSize: 22,
+                  cursor: "pointer",
+                  padding: "0 4px",
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            {mobilePanel === "store" ? (
+              <StoreRanking
+                stores={stores}
+                onStoreSelect={(id) => { handleStoreSelect(id); setMobilePanel(null); }}
+                isFavorite={isFavorite}
+                onToggleFavorite={toggleFavorite}
+              />
+            ) : (
+              <PrefectureRanking
+                stores={stores}
+                selectedPrefecture={selectedPrefecture}
+                onPrefectureSelect={(p) => { handlePrefSelect(p); setMobilePanel(null); }}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -267,9 +355,7 @@ const globalCSS = `
   }
 
   .main-grid {
-    display: grid;
     grid-template-columns: 260px 1fr 260px;
-    gap: 16px;
   }
 
   @media (max-width: 1100px) {
@@ -285,7 +371,9 @@ const globalCSS = `
     .main-grid {
       grid-template-columns: 1fr;
     }
-    .sidebar-left, .sidebar-right { order: unset; }
+    .sidebar-left, .sidebar-right {
+      display: none !important;
+    }
     .map-center { grid-column: auto; }
   }
 
@@ -303,6 +391,48 @@ const globalCSS = `
       position: static;
       max-height: 400px;
     }
+  }
+
+  .mobile-menu-wrapper {
+    display: none;
+  }
+
+  @media (max-width: 700px) {
+    .mobile-menu-wrapper {
+      display: block;
+    }
+  }
+
+  .mobile-menu-btn {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .mobile-panel-content {
+    background: #0f172a;
+    border-top: 1px solid #1e293b;
+    border-radius: 16px 16px 0 0;
+    padding: 16px;
+    max-height: 70vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
 `;
 
@@ -364,7 +494,6 @@ const appStyles: Record<string, React.CSSProperties> = {
     margin: "0 auto",
     padding: "20px 24px 40px",
     display: "grid",
-    gridTemplateColumns: "260px 1fr 260px",
     gap: 16,
     alignItems: "start",
   },
