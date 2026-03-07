@@ -12,9 +12,15 @@ interface Props {
   stores: Store[];
   onStoreSelect: (id: string) => void;
   onPrefectureSelect: (pref: string) => void;
+  compact?: boolean;
 }
 
-export function SearchBar({ stores, onStoreSelect, onPrefectureSelect }: Props) {
+export function SearchBar({
+  stores,
+  onStoreSelect,
+  onPrefectureSelect,
+  compact = false,
+}: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,10 +75,10 @@ export function SearchBar({ stores, onStoreSelect, onPrefectureSelect }: Props) 
 
   return (
     <div ref={containerRef} style={containerStyle}>
-      <div style={inputWrapStyle}>
-        <span style={iconStyle}>🔍</span>
+      <div style={{ ...inputWrapStyle, ...(compact ? compactInputWrapStyle : {}) }}>
+        <span style={{ ...iconStyle, ...(compact ? compactIconStyle : {}) }}>🔍</span>
         <input
-          style={inputStyle}
+          style={{ ...inputStyle, ...(compact ? compactInputStyle : {}) }}
           placeholder="店舗名・都道府県で検索..."
           value={query}
           onChange={(e) => {
@@ -89,7 +95,7 @@ export function SearchBar({ stores, onStoreSelect, onPrefectureSelect }: Props) 
         />
         {query && (
           <button
-            style={clearStyle}
+            style={{ ...clearStyle, ...(compact ? compactClearStyle : {}) }}
             onClick={() => { setQuery(""); setOpen(false); }}
           >
             ✕
@@ -191,6 +197,27 @@ const clearStyle: React.CSSProperties = {
   cursor: "pointer",
   padding: 4,
   flexShrink: 0,
+};
+
+const compactInputWrapStyle: React.CSSProperties = {
+  borderRadius: 14,
+  padding: "0 10px",
+  minHeight: 44,
+  background: "rgba(15, 23, 42, 0.88)",
+  backdropFilter: "blur(12px)",
+};
+
+const compactIconStyle: React.CSSProperties = {
+  fontSize: 13,
+};
+
+const compactInputStyle: React.CSSProperties = {
+  fontSize: 12,
+  padding: "10px 0",
+};
+
+const compactClearStyle: React.CSSProperties = {
+  fontSize: 11,
 };
 
 const dropdownStyle: React.CSSProperties = {

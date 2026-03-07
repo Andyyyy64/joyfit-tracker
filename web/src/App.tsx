@@ -173,9 +173,9 @@ export function App() {
 
       {/* Header */}
       <header className="app-header" style={appStyles.header}>
-        <div style={appStyles.headerInner}>
+        <div className="header-inner" style={appStyles.headerInner}>
           <div style={appStyles.headerLeft}>
-            <h1 style={appStyles.title}>JOYFIT24</h1>
+            <h1 className="header-title" style={appStyles.title}>JOYFIT24</h1>
             <p className="header-subtitle" style={appStyles.subtitle}>混雑トラッカー</p>
           </div>
           <div style={appStyles.headerRight}>
@@ -242,6 +242,7 @@ export function App() {
                 stores={stores}
                 onStoreSelect={handleStoreSelect}
                 onPrefectureSelect={handlePrefSelect}
+                compact
               />
             </div>
             <JapanMap
@@ -357,8 +358,14 @@ export function App() {
 }
 
 const globalCSS = `
+  :root {
+    --mobile-header-height: 60px;
+    --mobile-screen-padding: 12px;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f172a; color: #f1f5f9; }
+  html, body, #root { min-height: 100%; }
+  body { background: #0f172a; color: #f1f5f9; overflow-x: hidden; }
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: #0f172a; }
   ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
@@ -440,10 +447,28 @@ const globalCSS = `
 
   /* === Mobile breakpoint (700px) === */
   @media (max-width: 700px) {
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      padding: 8px 0 !important;
+      backdrop-filter: blur(16px);
+    }
+
+    .header-inner {
+      min-height: var(--mobile-header-height);
+      padding: 0 var(--mobile-screen-padding) !important;
+    }
+
+    .header-title {
+      font-size: 20px !important;
+    }
+
     .main-grid {
       grid-template-columns: 1fr;
       padding: 0 !important;
       gap: 0 !important;
+      min-height: calc(100dvh - var(--mobile-header-height));
     }
 
     .sidebar-left, .sidebar-right {
@@ -453,11 +478,7 @@ const globalCSS = `
     .map-center {
       grid-column: auto;
       gap: 0 !important;
-    }
-
-    /* Header compact */
-    .app-header {
-      padding: 10px 0 !important;
+      min-height: calc(100dvh - var(--mobile-header-height));
     }
 
     .header-subtitle {
@@ -482,18 +503,20 @@ const globalCSS = `
     .search-mobile {
       display: block !important;
       position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      z-index: 10;
+      top: var(--mobile-screen-padding);
+      left: var(--mobile-screen-padding);
+      right: var(--mobile-screen-padding);
+      z-index: 12;
     }
 
-    /* Map takes full viewport */
     .map-wrapper {
-      min-height: calc(100vh - 52px) !important;
-      min-height: calc(100dvh - 52px) !important;
+      height: calc(100dvh - var(--mobile-header-height));
+      min-height: calc(100dvh - var(--mobile-header-height)) !important;
       border-radius: 0 !important;
       border: none !important;
+      background:
+        radial-gradient(circle at top, rgba(99, 102, 241, 0.14), transparent 28%),
+        #020617;
     }
 
     .map-hint {
@@ -582,7 +605,7 @@ const appStyles: Record<string, React.CSSProperties> = {
     borderRadius: 16,
     overflow: "hidden",
     border: "1px solid #1e293b",
-    minHeight: 400,
+    minHeight: 480,
   },
   mapOverlay: {
     position: "absolute" as const,

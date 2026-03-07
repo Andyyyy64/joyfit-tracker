@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import type { Store } from "../api";
 
@@ -52,8 +52,28 @@ interface Props {
   onPrefectureSelect: (name: string) => void;
 }
 
+const MOBILE_BREAKPOINT = 700;
+
+const DESKTOP_MAP_LAYOUT = {
+  projectionScale: 1400,
+  projectionCenter: [137, 37] as [number, number],
+  viewBox: "0 0 800 600",
+  preserveAspectRatio: "xMidYMid meet",
+};
+
+const MOBILE_MAP_LAYOUT = {
+  projectionScale: 1580,
+  projectionCenter: [137, 37.2] as [number, number],
+  viewBox: "140 -28 520 668",
+  preserveAspectRatio: "xMidYMin meet",
+};
+
 export function JapanMap({ stores, selectedPrefecture, onPrefectureSelect }: Props) {
   const [hoveredPref, setHoveredPref] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= MOBILE_BREAKPOINT;
+  });
 
   const prefStoreMap = useMemo(() => {
     const map = new Map<string, Store[]>();
@@ -66,14 +86,48 @@ export function JapanMap({ stores, selectedPrefecture, onPrefectureSelect }: Pro
     return map;
   }, [stores]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const syncViewport = () => setIsMobile(mediaQuery.matches);
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
+  const mapLayout = isMobile ? MOBILE_MAP_LAYOUT : DESKTOP_MAP_LAYOUT;
+  const legendContainerStyle = isMobile ? mobileLegendStyle : legendStyle;
+  const legendRowStyle = isMobile ? mobileLegendItem : legendItem;
+  const mapTransform = isMobile ? "translateY(44px) scale(1.02)" : undefined;
+
   return (
-    <div style={{ width: "100%", height: "100%", background: "#0f172a", borderRadius: 16, overflow: "hidden", position: "relative" }}>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: "#0f172a",
+        borderRadius: isMobile ? 0 : 16,
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
       <ComposableMap
         projection="geoMercator"
-        projectionConfig={{ scale: 1400, center: [137, 37] }}
-        style={{ width: "100%", height: "100%" }}
-        viewBox="0 0 800 600"
-        preserveAspectRatio="xMidYMid meet"
+        projectionConfig={{
+          scale: mapLayout.projectionScale,
+          center: mapLayout.projectionCenter,
+        }}
+        style={{
+          width: "100%",
+          height: "100%",
+          transform: mapTransform,
+          transformOrigin: "center top",
+        }}
+        viewBox={mapLayout.viewBox}
+        preserveAspectRatio={mapLayout.preserveAspectRatio}
       >
         <Geographies geography={GEO_URL}>
           {({ geographies }) =>
@@ -111,28 +165,26 @@ export function JapanMap({ stores, selectedPrefecture, onPrefectureSelect }: Pro
         </Geographies>
       </ComposableMap>
 
-      {/* Legend */}
-      <div style={legendStyle}>
-        <div style={legendItem}>
+      <div style={legendContainerStyle}>
+        <div style={legendRowStyle}>
           <div style={{ ...legendDot, background: "#166534" }} />
           <span>空いている</span>
         </div>
-        <div style={legendItem}>
+        <div style={legendRowStyle}>
           <div style={{ ...legendDot, background: "#92400e" }} />
           <span>普通</span>
         </div>
-        <div style={legendItem}>
+        <div style={legendRowStyle}>
           <div style={{ ...legendDot, background: "#7f1d1d" }} />
           <span>混んでいる</span>
         </div>
-        <div style={legendItem}>
+        <div style={legendRowStyle}>
           <div style={{ ...legendDot, background: "#1e293b", border: "1px solid #334155" }} />
           <span>データなし</span>
         </div>
       </div>
 
-      {/* Hover tooltip */}
-      {hoveredPref && (
+      {!isMobile && hoveredPref && (
         <div style={tooltipStyle}>
           <span style={{ fontWeight: 600 }}>{hoveredPref}</span>
           {(() => {
@@ -171,6 +223,30 @@ const legendItem: React.CSSProperties = {
   gap: 8,
   fontSize: 11,
   color: "#94a3b8",
+};
+
+const mobileLegendStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 12,
+  right: 12,
+  bottom: 12,
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 8,
+  background: "rgba(15,23,42,0.78)",
+  backdropFilter: "blur(10px)",
+  border: "1px solid rgba(51, 65, 85, 0.9)",
+  borderRadius: 14,
+  padding: "10px 12px",
+};
+
+const mobileLegendItem: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  minWidth: 0,
+  fontSize: 10,
+  color: "#cbd5e1",
 };
 
 const legendDot: React.CSSProperties = {
