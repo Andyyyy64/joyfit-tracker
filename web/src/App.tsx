@@ -172,19 +172,21 @@ export function App() {
       <style>{globalCSS}</style>
 
       {/* Header */}
-      <header style={appStyles.header}>
+      <header className="app-header" style={appStyles.header}>
         <div style={appStyles.headerInner}>
           <div style={appStyles.headerLeft}>
             <h1 style={appStyles.title}>JOYFIT24</h1>
-            <p style={appStyles.subtitle}>混雑トラッカー</p>
+            <p className="header-subtitle" style={appStyles.subtitle}>混雑トラッカー</p>
           </div>
           <div style={appStyles.headerRight}>
-            <div style={appStyles.liveDot} />
-            <span style={appStyles.liveText}>
-              {storesLoading
-                ? "読み込み中..."
-                : `${totalActive} / ${stores.length} 店舗 データあり`}
-            </span>
+            <div className="header-live" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={appStyles.liveDot} />
+              <span style={appStyles.liveText}>
+                {storesLoading
+                  ? "読み込み中..."
+                  : `${totalActive} / ${stores.length} 店舗 データあり`}
+              </span>
+            </div>
             {/* Mobile three-dot menu */}
             <div className="mobile-menu-wrapper">
               <button
@@ -204,11 +206,13 @@ export function App() {
       </header>
 
       {/* Favorites Bar */}
-      <FavoriteBar
-        stores={favoriteStores}
-        onStoreSelect={handleStoreSelect}
-        onToggleFavorite={toggleFavorite}
-      />
+      <div className="favorites-wrapper">
+        <FavoriteBar
+          stores={favoriteStores}
+          onStoreSelect={handleStoreSelect}
+          onToggleFavorite={toggleFavorite}
+        />
+      </div>
 
       {/* 3-column layout */}
       <main className="main-grid" style={appStyles.main}>
@@ -224,12 +228,22 @@ export function App() {
 
         {/* Center: Search + Map */}
         <div className="map-center" style={appStyles.center}>
-          <SearchBar
-            stores={stores}
-            onStoreSelect={handleStoreSelect}
-            onPrefectureSelect={handlePrefSelect}
-          />
-          <div style={appStyles.mapWrapper}>
+          <div className="search-desktop">
+            <SearchBar
+              stores={stores}
+              onStoreSelect={handleStoreSelect}
+              onPrefectureSelect={handlePrefSelect}
+            />
+          </div>
+          <div className="map-wrapper" style={appStyles.mapWrapper}>
+            {/* Mobile: search overlaid on map */}
+            <div className="search-mobile">
+              <SearchBar
+                stores={stores}
+                onStoreSelect={handleStoreSelect}
+                onPrefectureSelect={handlePrefSelect}
+              />
+            </div>
             <JapanMap
               stores={stores}
               selectedPrefecture={selectedPrefecture}
@@ -241,7 +255,7 @@ export function App() {
               </div>
             )}
           </div>
-          <p style={appStyles.hint}>都道府県をクリックすると店舗一覧を表示します</p>
+          <p className="map-hint" style={appStyles.hint}>都道府県をクリックすると店舗一覧を表示します</p>
         </div>
 
         {/* Right: Prefecture Ranking */}
@@ -354,6 +368,10 @@ const globalCSS = `
     50% { opacity: 0.5; }
   }
 
+  /* Desktop: search above map, mobile: overlaid */
+  .search-desktop { display: block; }
+  .search-mobile { display: none; }
+
   .main-grid {
     grid-template-columns: 260px 1fr 260px;
   }
@@ -365,16 +383,6 @@ const globalCSS = `
     .sidebar-left { order: 2; }
     .sidebar-right { order: 3; }
     .map-center { order: 1; grid-column: 1 / -1; }
-  }
-
-  @media (max-width: 700px) {
-    .main-grid {
-      grid-template-columns: 1fr;
-    }
-    .sidebar-left, .sidebar-right {
-      display: none !important;
-    }
-    .map-center { grid-column: auto; }
   }
 
   .sidebar {
@@ -393,25 +401,20 @@ const globalCSS = `
     }
   }
 
-  .mobile-menu-wrapper {
-    display: none;
-  }
-
-  @media (max-width: 700px) {
-    .mobile-menu-wrapper {
-      display: block;
-    }
-  }
+  /* === Mobile-only elements === */
+  .mobile-menu-wrapper { display: none; }
 
   .mobile-menu-btn {
     background: #1e293b;
     border: 1px solid #334155;
     border-radius: 8px;
-    padding: 6px 8px;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
 
   .mobile-panel-overlay {
@@ -429,10 +432,73 @@ const globalCSS = `
     border-top: 1px solid #1e293b;
     border-radius: 16px 16px 0 0;
     padding: 16px;
-    max-height: 70vh;
+    max-height: 75vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+  }
+
+  /* === Mobile breakpoint (700px) === */
+  @media (max-width: 700px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+      padding: 0 !important;
+      gap: 0 !important;
+    }
+
+    .sidebar-left, .sidebar-right {
+      display: none !important;
+    }
+
+    .map-center {
+      grid-column: auto;
+      gap: 0 !important;
+    }
+
+    /* Header compact */
+    .app-header {
+      padding: 10px 0 !important;
+    }
+
+    .header-subtitle {
+      display: none !important;
+    }
+
+    .header-live {
+      display: none !important;
+    }
+
+    .mobile-menu-wrapper {
+      display: block;
+    }
+
+    /* Hide favorites on mobile (accessible via menu) */
+    .favorites-wrapper {
+      display: none;
+    }
+
+    /* Search: hide desktop, show overlay */
+    .search-desktop { display: none !important; }
+    .search-mobile {
+      display: block !important;
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 10;
+    }
+
+    /* Map takes full viewport */
+    .map-wrapper {
+      min-height: calc(100vh - 52px) !important;
+      min-height: calc(100dvh - 52px) !important;
+      border-radius: 0 !important;
+      border: none !important;
+    }
+
+    .map-hint {
+      display: none !important;
+    }
   }
 `;
 
@@ -451,7 +517,7 @@ const appStyles: Record<string, React.CSSProperties> = {
   headerInner: {
     maxWidth: 1600,
     margin: "0 auto",
-    padding: "0 24px",
+    padding: "0 16px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -516,7 +582,7 @@ const appStyles: Record<string, React.CSSProperties> = {
     borderRadius: 16,
     overflow: "hidden",
     border: "1px solid #1e293b",
-    minHeight: 480,
+    minHeight: 400,
   },
   mapOverlay: {
     position: "absolute" as const,

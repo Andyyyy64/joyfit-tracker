@@ -67,12 +67,13 @@ export function JapanMap({ stores, selectedPrefecture, onPrefectureSelect }: Pro
   }, [stores]);
 
   return (
-    <div style={{ width: "100%", background: "#0f172a", borderRadius: 16, overflow: "hidden", position: "relative" }}>
+    <div style={{ width: "100%", height: "100%", background: "#0f172a", borderRadius: 16, overflow: "hidden", position: "relative" }}>
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{ scale: 1400, center: [137, 37] }}
         style={{ width: "100%", height: "100%" }}
         viewBox="0 0 800 600"
+        preserveAspectRatio="xMidYMid meet"
       >
         <Geographies geography={GEO_URL}>
           {({ geographies }) =>
